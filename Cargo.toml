@@ -9,3 +9,6 @@ iced = { version = "0.14.0", features = ["advanced", "debug"] }
 rand = "0.10.1"
 serde = { version = "1.0.228", features = ["derive"] }
 tracing-subscriber = "0.3.23"
+
+[target.'cfg(all(target_family = "wasm", any(target_os = "unknown", target_os = "none")))'.dependencies]
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
