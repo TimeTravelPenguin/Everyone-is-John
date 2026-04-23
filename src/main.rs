@@ -1,12 +1,24 @@
 #![allow(dead_code)]
 
+use std::fmt::Debug;
+
+use iced::alignment::Vertical;
 use iced::keyboard::key;
-use iced::widget::{center, center_x, column, container, operation, scrollable};
-use iced::{Element, Event, Font, Subscription, Task, Theme, keyboard};
+use iced::widget::{
+    button, center, center_x, column, combo_box, container, markdown, mouse_area, opaque,
+    operation, pick_list, right_center, row, scrollable, space, stack, svg, text,
+};
+use iced::{
+    Color, Element, Event, Font, Length, Pixels, Subscription, Task, Theme, color, keyboard,
+};
 use rand::rngs::ThreadRng;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::dice::{Dice, DiceMessage};
+
+const LOGO_LIGHT: &[u8] = include_bytes!("../assets/eij_latte.svg");
+const LOGO_DARK: &[u8] = include_bytes!("../assets/eij_mocha.svg");
+const RULES: &str = include_str!("../assets/rules.md");
 
 mod dice;
 mod eij;
@@ -33,22 +45,34 @@ struct App {
     theme: Theme,
     dice: Dice,
     rng: ThreadRng,
+    selected_theme: Option<Theme>,
+    show_rules: bool,
+    rules_markdown: markdown::Content,
 }
 
 #[derive(Debug, Clone)]
 enum AppMessage {
     Exit,
     ToggleTheme,
+    SetTheme(Theme),
     DiceMessage(DiceMessage),
+    ShowRules,
+    HideRules,
+    LinkClicked(String),
     Event(iced::Event),
 }
 
 impl App {
     pub fn new() -> Self {
+        let rules_markdown = markdown::Content::parse(RULES);
+
         Self {
             theme: Theme::CatppuccinMocha,
             dice: Dice::new(1, 6, 0),
             rng: rand::rng(),
+            selected_theme: Some(Theme::CatppuccinMocha),
+            show_rules: false,
+            rules_markdown,
         }
     }
 
@@ -70,6 +94,11 @@ impl App {
                     Theme::CatppuccinLatte => Theme::CatppuccinMocha,
                     _ => Theme::CatppuccinMocha,
                 };
+                Task::none()
+            }
+            AppMessage::SetTheme(theme) => {
+                self.selected_theme = Some(theme.clone());
+                self.theme = theme;
                 Task::none()
             }
             AppMessage::DiceMessage(dice_message) => self
@@ -112,6 +141,22 @@ impl App {
                     _ => Task::none(),
                 }
             }
+            AppMessage::ShowRules => {
+                self.show_rules = true;
+                Task::none()
+            }
+            AppMessage::HideRules => {
+                self.show_rules = false;
+                Task::none()
+            }
+            AppMessage::LinkClicked(url) => {
+                let res = webbrowser::open(&url);
+                if let Err(e) = res {
+                    warn!("Failed to open link: {}", e);
+                }
+
+                Task::none()
+            }
         }
     }
 
@@ -120,9 +165,105 @@ impl App {
     }
 
     pub fn view(&self) -> Element<'_, AppMessage> {
-        let content = column!["Main Window", self.dice.view().map(AppMessage::DiceMessage)];
-        let content = container(scrollable(center_x(content))).padding(10);
+        let header = self.view_header();
 
-        center(content).into()
+        let dice = self.dice.view().map(AppMessage::DiceMessage);
+        let rules_button = button("Show Rules").on_press(AppMessage::ShowRules);
+        let content = column!["Main Window", dice, rules_button];
+
+        let body = container(scrollable(center(content)))
+            .padding(10)
+            .align_top(Length::FillPortion(4));
+
+        let spacer = space().height(Length::FillPortion(1));
+        let app_body = column![header, spacer, body];
+
+        if self.show_rules {
+            modal(app_body, self.view_rules(), AppMessage::HideRules)
+        } else {
+            app_body.into()
+        }
     }
+
+    fn view_header(&self) -> Element<'_, AppMessage> {
+        let logo_svg = if self.theme.extended_palette().is_dark {
+            svg(svg::Handle::from_memory(LOGO_DARK))
+        } else {
+            svg(svg::Handle::from_memory(LOGO_LIGHT))
+        };
+
+        let logo = container(
+            logo_svg
+                .width(100)
+                .height(100)
+                .style(|theme: &Theme, _status| svg::Style {
+                    color: Some(theme.palette().text),
+                }),
+        )
+        .align_top(Length::Shrink)
+        .align_left(Length::Shrink);
+
+        let theme_combo = pick_list(
+            Theme::ALL,
+            self.selected_theme.as_ref(),
+            AppMessage::SetTheme,
+        )
+        .placeholder("Select Theme");
+
+        let theme_selector = row![text("Theme:"), theme_combo]
+            .align_y(Vertical::Center)
+            .spacing(10);
+
+        row![logo, container(theme_selector).align_right(Length::Fill)]
+            .padding(10)
+            .into()
+    }
+
+    fn view_rules(&self) -> Element<'_, AppMessage> {
+        let ok_button = container(button("Ok").on_press(AppMessage::HideRules))
+            .padding(10)
+            .align_right(Length::Fill);
+
+        let rules = container(scrollable(
+            center(
+                markdown::view(self.rules_markdown.items(), &self.theme)
+                    .map(AppMessage::LinkClicked),
+            )
+            .padding(20),
+        ));
+
+        container(column![rules.max_height(500), ok_button].spacing(20))
+            .style(container::bordered_box)
+            .max_width(500)
+            .into()
+    }
+}
+
+fn modal<'a, Message>(
+    base: impl Into<Element<'a, Message>>,
+    content: impl Into<Element<'a, Message>>,
+    on_blur: Message,
+) -> Element<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    stack![
+        base.into(),
+        opaque(
+            mouse_area(center(opaque(content)).style(|_theme| {
+                container::Style {
+                    background: Some(
+                        Color {
+                            a: 0.8,
+                            ..Color::BLACK
+                        }
+                        .into(),
+                    ),
+                    ..container::Style::default()
+                }
+            }))
+            .on_press(on_blur)
+        )
+    ]
+    .into()
 }
