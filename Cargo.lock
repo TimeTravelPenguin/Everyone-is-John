@@ -3,23 +3,6 @@
 version = 4
 
 [[package]]
-name = "EiJ-Tracker"
-version = "0.1.0"
-dependencies = [
- "console_error_panic_hook",
- "derive_setters",
- "getrandom 0.4.2",
- "iced",
- "iced_aw",
- "num",
- "rand",
- "serde",
- "tracing",
- "tracing-subscriber",
- "webbrowser",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -847,6 +830,23 @@ name = "dtor"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17f72721db8027a4e96dd6fb50d2a1d32259c9d3da1b63dee612ccd981e14293"
+
+[[package]]
+name = "eij-tracker"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "derive_setters",
+ "getrandom 0.4.2",
+ "iced",
+ "iced_aw",
+ "num",
+ "rand",
+ "serde",
+ "tracing",
+ "tracing-subscriber",
+ "webbrowser",
+]
 
 [[package]]
 name = "endi"

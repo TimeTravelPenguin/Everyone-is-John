@@ -1,11 +1,6 @@
 use iced::{
     self, Alignment, Element, Length, Task,
-    advanced::Widget,
-    mouse,
-    widget::{
-        self, Button, button, center, checkbox, column, container, container::rounded_box,
-        mouse_area, row, slider, space, text, text_input, value,
-    },
+    widget::{self, button, center, column, container, row, space, text},
 };
 use iced_aw::number_input;
 use rand::{Rng, RngExt};

@@ -2,26 +2,22 @@
 
 use std::fmt::Debug;
 
+use eij_tracker::eij::Attribute;
 use iced::alignment::Vertical;
 use iced::keyboard::key;
 use iced::widget::{
-    button, center, center_x, column, combo_box, container, markdown, mouse_area, opaque,
-    operation, pick_list, right_center, row, scrollable, space, stack, svg, text,
+    button, center, column, container, markdown, mouse_area, opaque, operation, pick_list, row,
+    scrollable, space, stack, svg, text,
 };
-use iced::{
-    Color, Element, Event, Font, Length, Pixels, Subscription, Task, Theme, color, keyboard,
-};
+use iced::{Color, Element, Event, Font, Length, Subscription, Task, Theme, keyboard};
 use rand::rngs::ThreadRng;
 use tracing::{info, warn};
 
-use crate::dice::{Dice, DiceMessage};
+use eij_tracker::dice::{Dice, DiceMessage};
 
 const LOGO_LIGHT: &[u8] = include_bytes!("../assets/eij_latte.svg");
 const LOGO_DARK: &[u8] = include_bytes!("../assets/eij_mocha.svg");
 const RULES: &str = include_str!("../assets/rules.md");
-
-mod dice;
-mod eij;
 
 pub fn main() -> iced::Result {
     #[cfg(not(target_family = "wasm"))]
