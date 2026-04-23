@@ -17,6 +17,8 @@ pub fn main() -> iced::Result {
         .subscription(App::subscription)
         .title(App::title)
         .theme(App::theme)
+        .font(include_bytes!("../fonts/nunito sans/NunitoSans-VariableFont.ttf").as_slice())
+        .default_font(Font::with_name("Nunito Sans"))
         .run()
 }
 
