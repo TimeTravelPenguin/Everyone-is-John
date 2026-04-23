@@ -1,100 +1,128 @@
 #![allow(dead_code)]
 
-use std::collections::BTreeMap;
+use iced::keyboard::key;
+use iced::widget::{center, center_x, column, container, operation, scrollable};
+use iced::{Element, Event, Font, Subscription, Task, Theme, keyboard};
+use rand::rngs::ThreadRng;
+use tracing::info;
 
-use iced::Theme;
-use iced::widget::{center, space};
-use iced::{Element, Subscription, Task};
+use crate::dice::{Dice, DiceMessage};
 
-use crate::window::{Window, WindowInfo};
-
-mod window;
+mod dice;
+mod eij;
 
 pub fn main() -> iced::Result {
+    #[cfg(not(target_family = "wasm"))]
     tracing_subscriber::fmt::init();
 
-    iced::daemon(App::new, App::update, App::view)
+    #[cfg(target_family = "wasm")]
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+    iced::application(App::new, App::update, App::view)
         .subscription(App::subscription)
-        .title(App::title)
+        .title("EiJ Tracker")
         .theme(App::theme)
         .font(include_bytes!("../fonts/nunito sans/NunitoSans-VariableFont.ttf").as_slice())
         .default_font(Font::with_name("Nunito Sans"))
+        .centered()
         .run()
 }
 
 #[derive(Debug)]
 struct App {
     theme: Theme,
-    windows: BTreeMap<window::Id, Window>,
+    dice: Dice,
+    rng: ThreadRng,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum AppMessage {
-    WindowOpened(window::Id),
-    WindowClosed(window::Id),
+    Exit,
+    ToggleTheme,
+    DiceMessage(DiceMessage),
+    Event(iced::Event),
 }
 
 impl App {
-    pub fn new() -> (Self, Task<AppMessage>) {
-        let (_, open) = window::open(window::Settings::default());
-
-        let app = Self {
+    pub fn new() -> Self {
+        Self {
             theme: Theme::CatppuccinMocha,
-            windows: BTreeMap::new(),
-        };
-        let open = open.map(AppMessage::WindowOpened);
-
-        (app, open)
+            dice: Dice::new(1, 6, 0),
+            rng: rand::rng(),
+        }
     }
 
-    pub fn title(&self, window_id: window::Id) -> String {
-        self.windows
-            .get(&window_id)
-            .map(|window| window.title().to_string())
-            .unwrap_or_default()
-    }
-
-    // pub fn theme(&self, window_id: window::Id) -> Theme {
-    //     self.windows
-    //         .get(&window_id)
-    //         .map(|window| window.theme().clone())
-    //         .unwrap_or_else(|| Theme::Dark)
-    // }
-
-    pub fn theme(&self, _window_id: window::Id) -> Theme {
+    pub fn theme(&self) -> Theme {
         self.theme.clone()
+    }
+
+    // Listen for global events (like keyboard input) and convert them into messages
+    fn subscription(_state: &App) -> Subscription<AppMessage> {
+        iced::event::listen().map(AppMessage::Event)
     }
 
     pub fn update(&mut self, message: AppMessage) -> Task<AppMessage> {
         match message {
-            AppMessage::WindowOpened(id) => {
-                self.windows.insert(id, Window::Main(WindowInfo::default()));
-
+            AppMessage::Exit => iced::exit(),
+            AppMessage::ToggleTheme => {
+                self.theme = match self.theme {
+                    Theme::CatppuccinMocha => Theme::CatppuccinLatte,
+                    Theme::CatppuccinLatte => Theme::CatppuccinMocha,
+                    _ => Theme::CatppuccinMocha,
+                };
                 Task::none()
             }
-            AppMessage::WindowClosed(id) => {
-                self.windows.remove(&id);
+            AppMessage::DiceMessage(dice_message) => self
+                .dice
+                .update(dice_message, &mut self.rng)
+                .map(AppMessage::DiceMessage),
+            AppMessage::Event(event) => {
+                match event {
+                    Event::Keyboard(keyboard::Event::KeyPressed {
+                        key: keyboard::Key::Named(key::Named::Tab),
+                        modifiers,
+                        ..
+                    }) => {
+                        if modifiers.shift() {
+                            info!("Shift + Tab pressed");
+                            operation::focus_previous()
+                        } else {
+                            info!("Tab pressed");
+                            operation::focus_next()
+                        }
+                    }
+                    Event::Keyboard(keyboard::Event::KeyPressed {
+                        // Q Key
+                        key,
+                        modifiers,
+                        ..
+                    }) => {
+                        let not_wasm = !cfg!(target_family = "wasm");
 
-                if self.windows.is_empty() {
-                    iced::exit()
-                } else {
-                    Task::none()
+                        if key == keyboard::Key::Character("w".into())
+                            && modifiers.command()
+                            && not_wasm
+                        {
+                            info!("Command + W pressed");
+                            self.exit()
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    _ => Task::none(),
                 }
             }
         }
     }
 
-    pub fn view(&self, window_id: window::Id) -> Element<'_, AppMessage> {
-        let content = self
-            .windows
-            .get(&window_id)
-            .map(|window| window.view(window_id))
-            .unwrap_or_else(|| space().into());
-
-        center(content).into()
+    pub fn exit(&mut self) -> Task<AppMessage> {
+        iced::exit()
     }
 
-    fn subscription(&self) -> Subscription<AppMessage> {
-        window::close_events().map(AppMessage::WindowClosed)
+    pub fn view(&self) -> Element<'_, AppMessage> {
+        let content = column!["Main Window", self.dice.view().map(AppMessage::DiceMessage)];
+        let content = container(scrollable(center_x(content))).padding(10);
+
+        center(content).into()
     }
 }
