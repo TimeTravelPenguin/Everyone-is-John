@@ -2,7 +2,6 @@
 
 use std::fmt::Debug;
 
-use eij_tracker::eij::Attribute;
 use iced::alignment::Vertical;
 use iced::keyboard::key;
 use iced::widget::{
@@ -30,6 +29,7 @@ pub fn main() -> iced::Result {
         .subscription(App::subscription)
         .title("EiJ Tracker")
         .theme(App::theme)
+        .font(include_bytes!("../fonts/nunito sans/NunitoSans-Italic-VariableFont.ttf").as_slice())
         .font(include_bytes!("../fonts/nunito sans/NunitoSans-VariableFont.ttf").as_slice())
         .default_font(Font::with_name("Nunito Sans"))
         .centered()
@@ -49,7 +49,6 @@ struct App {
 #[derive(Debug, Clone)]
 enum AppMessage {
     Exit,
-    ToggleTheme,
     SetTheme(Theme),
     DiceMessage(DiceMessage),
     ShowRules,
@@ -84,14 +83,7 @@ impl App {
     pub fn update(&mut self, message: AppMessage) -> Task<AppMessage> {
         match message {
             AppMessage::Exit => iced::exit(),
-            AppMessage::ToggleTheme => {
-                self.theme = match self.theme {
-                    Theme::CatppuccinMocha => Theme::CatppuccinLatte,
-                    Theme::CatppuccinLatte => Theme::CatppuccinMocha,
-                    _ => Theme::CatppuccinMocha,
-                };
-                Task::none()
-            }
+            
             AppMessage::SetTheme(theme) => {
                 self.selected_theme = Some(theme.clone());
                 self.theme = theme;
@@ -117,7 +109,6 @@ impl App {
                         }
                     }
                     Event::Keyboard(keyboard::Event::KeyPressed {
-                        // Q Key
                         key,
                         modifiers,
                         ..
@@ -238,7 +229,7 @@ impl App {
 fn modal<'a, Message>(
     base: impl Into<Element<'a, Message>>,
     content: impl Into<Element<'a, Message>>,
-    on_blur: Message,
+    on_blur_press: Message,
 ) -> Element<'a, Message>
 where
     Message: Clone + 'a,
@@ -258,7 +249,7 @@ where
                     ..container::Style::default()
                 }
             }))
-            .on_press(on_blur)
+            .on_press(on_blur_press)
         )
     ]
     .into()
